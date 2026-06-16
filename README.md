@@ -290,7 +290,7 @@ Do not commit:
 
 ---
 
-# GitHub safety
+# Dev commit important stuff:
 
 This repository should contain only the tool source code.
 

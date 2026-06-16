@@ -10,13 +10,13 @@ http://127.0.0.1:3000
 
 ## What this tool does
 
-Given:
+The tool imports an SCPper dump and builds a local SQLite lookup database. It can then answer questions such as:
 
-- site code, for example `en`
-- page slug, for example `scp-173`
-- date, for example `2019-02-01`
-
-it returns the article's reconstructed rating as of the end of that date. The tool imports an SCPper dump and builds a local SQLite lookup database. The generated database is stored locally under `data/`.
+- What was `scp-173` rated on `2019-02-01`?
+- Which pages were created during a chosen date window?
+- Which pages in a date window have a certain tag?
+- Which pages are currently below a chosen rating threshold?
+- How did one article's rating change over time?
 
 ## Requirements
 
@@ -38,9 +38,9 @@ Docker and MySQL are not required for this version.
 
 ---
 
-# Normal setup: Download ZIP
+# Windows quick setup
 
-Use this if you just want to run the tool and do not care about git.
+Use this if you downloaded the project as a ZIP and just want to run it.
 
 1. Open the GitHub repository in your browser.
 2. Click **Code**.
@@ -51,30 +51,43 @@ Use this if you just want to run the tool and do not care about git.
 C:\Users\YOUR_NAME\Desktop\scpper-rating-lookup
 ```
 
-5. Open the extracted folder.
-6. Open a terminal in that folder.
+Do **not** run the app from inside the ZIP. Extract it first.
 
-On Windows, you can do this by clicking the address bar in File Explorer, typing:
+5. Open the extracted folder.
+6. Double-click:
 
 ```text
-cmd
+Setup SCPper Rating Lookup.bat
 ```
 
-and pressing Enter.
+The setup script checks Node/npm, installs the app dependencies, and creates a desktop shortcut called:
 
-7. Install dependencies:
+```text
+SCPper Rating Lookup
+```
+
+After setup, start the app by using the desktop shortcut or by double-clicking:
+
+```text
+Start SCPper Rating Lookup.bat
+```
+
+Keep the black terminal window open while using the app. To stop the app, press `Ctrl+C`, then `Y`.
+
+---
+
+# Manual setup using Command Prompt
+
+Use this if you prefer typing the commands yourself.
+
+Open the project folder in Command Prompt, then run:
 
 ```bash
 npm install
-```
-
-8. Start the app:
-
-```bash
 npm start
 ```
 
-9. Open this in your browser if it does not open automatically:
+Open this in your browser if it does not open automatically:
 
 ```text
 http://127.0.0.1:3000
@@ -84,18 +97,16 @@ To stop the app, press `Ctrl+C` in the terminal.
 
 ---
 
-# Developer setup: git clone
+# Developer setup using git
 
-Use this only if you know git and want to update the tool using `git pull`.
+Use this if you know git and want to update the tool using `git pull`.
 
 ```bash
-git clone https://github.com/OWNER/scpper-rating-lookup.git
+git clone https://github.com/WackDog/scpper-rating-lookup.git
 cd scpper-rating-lookup
 npm install
 npm start
 ```
-
-Replace `OWNER/scpper-rating-lookup` with the actual private repo path.
 
 ---
 
@@ -183,9 +194,11 @@ Notes:
 
 # Reports
 
-After importing a dump, open the **Reports** section. Reports return page-level aggregate data only.
+After importing a dump, open the **Reports** section.
 
-Available reports:
+Reports return page-level aggregate data only. They do not expose individual votes or users.
+
+The report form only shows filters that are relevant to the selected report type.
 
 ## Current threshold report
 
@@ -193,39 +206,39 @@ Find pages at or below a chosen current rating.
 
 Useful for deletion-threshold or risk-review work.
 
-Inputs:
+Relevant filters:
 
 ```text
-Site: en
-Max rating: 0
-Limit: 100
-Include deleted pages: optional
+Site
+Max rating
+Include deleted pages
+Limit
 ```
 
 ## Top / bottom current pages
 
 List the highest-rated or lowest-rated current pages for a site.
 
-Inputs:
+Relevant filters:
 
 ```text
-Site: en
-Direction: Highest rating first / Lowest rating first
-Limit: 100
-Include deleted pages: optional
+Site
+Direction
+Include deleted pages
+Limit
 ```
 
 ## Article rating trajectory
 
 Calculate one article's rating at monthly intervals between two dates.
 
-Inputs:
+Relevant filters:
 
 ```text
-Site: en
-Page slug: scp-173
-Start date: 2019-01-01
-End date: 2020-01-01
+Site
+Page slug
+Start date
+End date
 ```
 
 ## Monthly page creation
@@ -234,35 +247,67 @@ Summarize how many pages were created per month, including current rating and de
 
 This uses the first revision timestamp as the estimated creation date.
 
-Inputs:
+Relevant filters:
 
 ```text
-Site: en
-Start date: 2019-01-01
-End date: 2020-01-01
+Site
+Start date
+End date
 ```
 
 ## Contest / date-window pages
 
 List pages created during a chosen date window, sorted by current rating.
 
-Useful for contest analysis.
+Useful for contest analysis when tags are not needed.
 
-Inputs:
+Relevant filters:
 
 ```text
-Site: en
-Start date: 2019-01-01
-End date: 2019-02-01
-Limit: 500
-Include deleted pages: optional
+Site
+Start date
+End date
+Include deleted pages
+Limit
 ```
+
+## Bulk pages by tag/date
+
+List pages created during a chosen upload/creation date window and optionally filter by tag.
+
+This is the report to use for requests like:
+
+```text
+All pages uploaded between 2019-01-01 and 2019-02-01 that have the tag scp.
+```
+
+It can also calculate each matching page's rating as of a chosen historical date.
+
+Relevant filters:
+
+```text
+Site
+Start date
+End date
+Required tag(s)
+Tag matching: must have all tags / may have any tag
+Rating as-of date
+Include deleted pages
+Limit
+```
+
+Notes:
+
+- Tags should be comma-separated, for example `scp, euclid`.
+- Leave the tag box empty to return all pages in the date window.
+- Page upload/creation date is estimated from the first revision timestamp in the dump.
+- Rating as-of date controls the historical rating calculation, not which pages are included.
 
 ## Site / branch summary
 
 Compare page counts, deletion counts, current average ratings, and creation-date ranges across SCP branches.
 
-No inputs are required.
+No filters are required.
 
 ## Downloading report data
 

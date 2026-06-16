@@ -7,20 +7,12 @@ echo SCPper Rating Lookup
 echo ==========================================
 echo.
 
-where node >nul 2>nul
+echo Checking npm...
+where npm >nul 2>nul
 if errorlevel 1 (
-    echo ERROR: Node.js was not found.
-    echo Please install Node.js 24 or newer, then run setup again.
-    echo.
-    pause
-    exit /b 1
-)
-
-if not exist "node_modules" (
-    echo Dependencies are not installed yet.
-    echo.
-    echo Please run:
-    echo Setup SCPper Rating Lookup.bat
+    echo ERROR: npm was not found.
+    echo Please run Setup SCPper Rating Lookup.bat first,
+    echo or install Node.js 24 from https://nodejs.org/
     echo.
     pause
     exit /b 1
@@ -32,7 +24,7 @@ echo Keep this window open while using the tool.
 echo To stop the app, press Ctrl+C, then Y.
 echo.
 
-npm start
+call npm start
 
 echo.
 echo App stopped.

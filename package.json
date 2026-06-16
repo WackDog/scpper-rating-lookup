@@ -1,0 +1,20 @@
+{
+  "name": "scpper-rating-lookup",
+  "version": "0.1.0",
+  "description": "Local SCPper historical rating lookup tool. Imports SCPper SQL dumps into a sanitized SQLite lookup database.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "import": "node src/import-worker.js",
+    "check": "node src/self-test.js"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {}
+}

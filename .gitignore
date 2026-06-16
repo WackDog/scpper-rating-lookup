@@ -1,0 +1,20 @@
+node_modules/
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Local imports / generated data. Do not commit SCPper dumps or databases.
+data/
+data/imports/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+*.sql
+*.sql.gz
+*.tsv
+*.csv
+
+# Build outputs, if added later.
+dist/
+out/
+release/

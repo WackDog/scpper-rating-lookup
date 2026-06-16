@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SCPper Rating Lookup</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>SCPper Rating Lookup</h1>
+      <p>Local historical article rating lookup from a sanitized SCPper dump import.</p>
+    </header>
+
+    <section class="card">
+      <h2>Database status</h2>
+      <div id="status">Checking...</div>
+      <button id="refresh-status" type="button">Refresh status</button>
+    </section>
+
+    <section class="card">
+      <h2>Import a new SCPper dump</h2>
+      <p class="muted">Use either a local file path, or upload a <code>.sql</code>/<code>.sql.gz</code> dump through the browser. Path import is usually faster for huge files.</p>
+
+      <div class="grid">
+        <label>
+          Dump path
+          <input id="dump-path" placeholder="C:\\path\\to\\scpper_2026-06-07.sql.gz" />
+        </label>
+        <button id="import-path" type="button">Import from path</button>
+      </div>
+
+      <hr />
+
+      <label>
+        Upload dump file
+        <input id="dump-file" type="file" accept=".sql,.gz,.sql.gz" />
+      </label>
+      <button id="import-upload" type="button">Upload and import</button>
+
+      <pre id="import-log">No import running.</pre>
+    </section>
+
+    <section class="card">
+      <h2>Lookup rating</h2>
+      <form id="lookup-form">
+        <div class="grid three">
+          <label>
+            Site
+            <select id="site">
+              <option value="en">en — English SCP Wiki</option>
+            </select>
+          </label>
+          <label>
+            Page slug
+            <input id="page" value="scp-173" placeholder="scp-173" />
+          </label>
+          <label>
+            Date
+            <input id="date" type="date" value="2019-02-01" />
+          </label>
+        </div>
+        <button type="submit">Look up</button>
+      </form>
+      <pre id="result">No lookup yet.</pre>
+    </section>
+
+
+    <section class="card">
+      <h2>Reports</h2>
+      <p class="muted">Run common data-analysis reports from the sanitized local database. These reports return page-level aggregates only.</p>
+
+      <div class="grid three">
+        <label>
+          Report type
+          <select id="report-type">
+            <option value="threshold">Current threshold report</option>
+            <option value="top-pages">Top / bottom current pages</option>
+            <option value="trajectory">Article rating trajectory</option>
+            <option value="monthly-creation">Monthly page creation</option>
+            <option value="contest-window">Contest / date-window pages</option>
+            <option value="site-summary">Site / branch summary</option>
+          </select>
+        </label>
+        <label data-report-field="threshold,top-pages,trajectory,monthly-creation,contest-window">
+          Site
+          <select id="report-site">
+            <option value="en">en — English SCP Wiki</option>
+          </select>
+        </label>
+        <label data-report-field="threshold,top-pages,contest-window">
+          Limit
+          <input id="report-limit" type="number" value="100" min="1" max="5000" />
+        </label>
+      </div>
+
+      <div class="grid three">
+        <label data-report-field="trajectory">
+          Page slug
+          <input id="report-page" value="scp-173" placeholder="scp-173" />
+        </label>
+        <label data-report-field="trajectory,monthly-creation,contest-window">
+          Start date
+          <input id="report-start" type="date" value="2019-01-01" />
+        </label>
+        <label data-report-field="trajectory,monthly-creation,contest-window">
+          End date
+          <input id="report-end" type="date" value="2020-01-01" />
+        </label>
+      </div>
+
+      <div class="grid three">
+        <label data-report-field="threshold">
+          Max rating
+          <input id="report-max-rating" type="number" value="0" />
+        </label>
+        <label data-report-field="top-pages">
+          Direction
+          <select id="report-direction">
+            <option value="highest">Highest rating first</option>
+            <option value="lowest">Lowest rating first</option>
+          </select>
+        </label>
+        <label data-report-field="threshold,top-pages,contest-window" class="checkbox-label">
+          <input id="report-include-deleted" type="checkbox" />
+          Include deleted pages
+        </label>
+      </div>
+
+      <div class="button-row">
+        <button id="run-report" type="button">Run report</button>
+        <button id="download-report" type="button">Download CSV</button>
+      </div>
+
+      <div id="report-result"><p class="muted">No report run yet.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Find a page slug</h2>
+      <div class="grid">
+        <input id="search-query" placeholder="Search page name or title" />
+        <button id="search-pages" type="button">Search</button>
+      </div>
+      <div id="search-results"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

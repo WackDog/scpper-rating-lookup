@@ -111,7 +111,7 @@ Import a new SCPper dump
 
 There are two import options.
 
-## Option A: Import from path — recommended for large dumps
+## Option A: Import from path (**recommended for large dumps**)
 
 Use this if the dump is already on your computer.
 
@@ -155,7 +155,7 @@ The app will parse the dump and build a local SQLite lookup database.
 
 Depending on the size of the dump, this may take a while.
 
-If import fails, copy the error message from the terminal or browser and send it to the maintainer.
+If import fails, copy the error message from the terminal or browser and send it to me via Discord or Wikidot within the SCP official Discord server or Tech server.
 
 ---
 
@@ -183,7 +183,7 @@ Notes:
 
 # Reports
 
-After importing a dump, open the **Reports** section. Reports return page-level aggregate data only; they do not expose individual votes or users.
+After importing a dump, open the **Reports** section. Reports return page-level aggregate data only.
 
 Available reports:
 

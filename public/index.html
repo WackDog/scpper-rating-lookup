@@ -80,18 +80,19 @@
             <option value="trajectory">Article rating trajectory</option>
             <option value="monthly-creation">Monthly page creation</option>
             <option value="contest-window">Contest / date-window pages</option>
+            <option value="bulk-pages">Bulk pages by tag/date</option>
             <option value="site-summary">Site / branch summary</option>
           </select>
         </label>
-        <label data-report-field="threshold,top-pages,trajectory,monthly-creation,contest-window">
+        <label data-report-field="threshold,top-pages,trajectory,monthly-creation,contest-window,bulk-pages">
           Site
           <select id="report-site">
             <option value="en">en — English SCP Wiki</option>
           </select>
         </label>
-        <label data-report-field="threshold,top-pages,contest-window">
+        <label data-report-field="threshold,top-pages,contest-window,bulk-pages">
           Limit
-          <input id="report-limit" type="number" value="100" min="1" max="5000" />
+          <input id="report-limit" type="number" value="100" min="1" max="10000" />
         </label>
       </div>
 
@@ -100,11 +101,11 @@
           Page slug
           <input id="report-page" value="scp-173" placeholder="scp-173" />
         </label>
-        <label data-report-field="trajectory,monthly-creation,contest-window">
+        <label data-report-field="trajectory,monthly-creation,contest-window,bulk-pages">
           Start date
           <input id="report-start" type="date" value="2019-01-01" />
         </label>
-        <label data-report-field="trajectory,monthly-creation,contest-window">
+        <label data-report-field="trajectory,monthly-creation,contest-window,bulk-pages">
           End date
           <input id="report-end" type="date" value="2020-01-01" />
         </label>
@@ -122,9 +123,27 @@
             <option value="lowest">Lowest rating first</option>
           </select>
         </label>
-        <label data-report-field="threshold,top-pages,contest-window" class="checkbox-label">
+        <label data-report-field="threshold,top-pages,contest-window,bulk-pages" class="checkbox-label">
           <input id="report-include-deleted" type="checkbox" />
           Include deleted pages
+        </label>
+      </div>
+
+      <div class="grid three">
+        <label data-report-field="bulk-pages">
+          Required tag(s)
+          <input id="report-tags" placeholder="scp, euclid" />
+        </label>
+        <label data-report-field="bulk-pages">
+          Tag matching
+          <select id="report-tag-mode">
+            <option value="all">Must have all tags</option>
+            <option value="any">May have any tag</option>
+          </select>
+        </label>
+        <label data-report-field="bulk-pages">
+          Rating as-of date
+          <input id="report-as-of" type="date" value="2019-02-01" />
         </label>
       </div>
 

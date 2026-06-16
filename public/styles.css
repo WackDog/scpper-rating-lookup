@@ -154,3 +154,8 @@ th {
   position: sticky;
   top: 0;
 }
+
+/* Ensure report filters hidden by JavaScript stay hidden even though labels have display rules. */
+[hidden] {
+  display: none !important;
+}

@@ -13,6 +13,7 @@ const REQUIRED_TABLES = new Set([
   'page_summary',
   'page_status',
   'revisions',
+  'tags',
   'votes',
   'vote_history',
 ]);
@@ -161,9 +162,12 @@ function initLookupDb(db) {
     DROP TABLE IF EXISTS dict_page_kind;
     DROP TABLE IF EXISTS pages;
     DROP TABLE IF EXISTS rating_events;
+    DROP TABLE IF EXISTS page_tags;
     DROP TABLE IF EXISTS import_metadata;
     DROP TABLE IF EXISTS temp_vote_events;
     DROP TABLE IF EXISTS temp_revision_events;
+    DROP TABLE IF EXISTS temp_page_summary;
+    DROP TABLE IF EXISTS temp_page_status;
 
     CREATE TABLE sites (
       site_id INTEGER PRIMARY KEY,
@@ -225,6 +229,12 @@ function initLookupDb(db) {
       nonzero_vote_delta INTEGER NOT NULL
     );
 
+    CREATE TABLE page_tags (
+      page_id INTEGER NOT NULL,
+      tag TEXT NOT NULL,
+      PRIMARY KEY (page_id, tag)
+    );
+
     CREATE TABLE import_metadata (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -243,6 +253,25 @@ function initLookupDb(db) {
       page_id INTEGER NOT NULL,
       revision_time TEXT NOT NULL
     );
+
+    CREATE TABLE temp_page_summary (
+      page_id INTEGER PRIMARY KEY,
+      rating INTEGER,
+      clean_rating INTEGER,
+      month_rating INTEGER,
+      revision_count INTEGER,
+      contributor_rating INTEGER,
+      adjusted_rating INTEGER,
+      wilson_score REAL
+    );
+
+    CREATE TABLE temp_page_status (
+      page_id INTEGER PRIMARY KEY,
+      status_id INTEGER,
+      original_id INTEGER,
+      fixed INTEGER,
+      kind_id INTEGER
+    );
   `);
 }
 
@@ -260,26 +289,22 @@ function prepareStatements(db) {
       )
     `),
     pageSummary: db.prepare(`
-      UPDATE pages
-      SET current_rating = ?,
-          current_clean_rating = ?,
-          current_month_rating = ?,
-          current_revision_count = ?,
-          contributor_rating = ?,
-          adjusted_rating = ?,
-          wilson_score = ?
-      WHERE page_id = ?
+      INSERT OR REPLACE INTO temp_page_summary (
+        page_id, rating, clean_rating, month_rating, revision_count,
+        contributor_rating, adjusted_rating, wilson_score
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `),
     pageStatus: db.prepare(`
-      UPDATE pages
-      SET status_id = ?, original_id = ?, fixed = ?, kind_id = ?
-      WHERE page_id = ?
+      INSERT OR REPLACE INTO temp_page_status (
+        page_id, status_id, original_id, fixed, kind_id
+      ) VALUES (?, ?, ?, ?, ?)
     `),
     tempVote: db.prepare(`
       INSERT INTO temp_vote_events (page_id, user_id, value, event_time, source_rank, source_id)
       VALUES (?, ?, ?, ?, ?, ?)
     `),
     tempRevision: db.prepare(`INSERT INTO temp_revision_events (page_id, revision_time) VALUES (?, ?)`),
+    pageTag: db.prepare(`INSERT OR IGNORE INTO page_tags (page_id, tag) VALUES (?, ?)`),
     meta: db.prepare(`INSERT OR REPLACE INTO import_metadata (key, value) VALUES (?, ?)`),
   };
 }
@@ -348,6 +373,7 @@ function handleRow(table, obj, statements, counters) {
     const pageId = Number(obj.PageId);
     if (!Number.isFinite(pageId)) return;
     statements.pageSummary.run(
+      pageId,
       numberOrNull(obj.Rating),
       numberOrNull(obj.CleanRating),
       numberOrNull(obj.MonthRating),
@@ -355,7 +381,6 @@ function handleRow(table, obj, statements, counters) {
       numberOrNull(obj.ContributorRating),
       numberOrNull(obj.AdjustedRating),
       numberOrNull(obj.WilsonScore),
-      pageId,
     );
     counters.pageSummary++;
     return;
@@ -365,11 +390,11 @@ function handleRow(table, obj, statements, counters) {
     const pageId = Number(obj.PageId);
     if (!Number.isFinite(pageId)) return;
     statements.pageStatus.run(
+      pageId,
       numberOrNull(obj.StatusId),
       numberOrNull(obj.OriginalId),
       numberOrNull(obj.Fixed),
       numberOrNull(obj.KindId),
-      pageId,
     );
     counters.pageStatus++;
     return;
@@ -381,6 +406,18 @@ function handleRow(table, obj, statements, counters) {
     if (!Number.isFinite(pageId) || !revisionTime) return;
     statements.tempRevision.run(pageId, revisionTime);
     counters.revisions++;
+    return;
+  }
+
+
+  if (table === 'tags') {
+    const pageId = Number(obj.PageId);
+    const rawTag = obj.Tag ?? obj.Name ?? obj.TagName ?? obj.Value ?? obj.Title;
+    if (!Number.isFinite(pageId) || rawTag === null || rawTag === undefined) return;
+    const tag = String(rawTag).trim().toLowerCase();
+    if (!tag) return;
+    statements.pageTag.run(pageId, tag);
+    counters.tags = (counters.tags || 0) + 1;
     return;
   }
 
@@ -406,6 +443,26 @@ function handleRow(table, obj, statements, counters) {
 }
 
 function finalizeLookupDb(db, statements, inputPath, counters, progress) {
+  emitProgress(progress, { phase: 'finalize', message: 'Applying page summary and status tables...' });
+  db.exec(`
+    UPDATE pages
+    SET current_rating = (SELECT rating FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        current_clean_rating = (SELECT clean_rating FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        current_month_rating = (SELECT month_rating FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        current_revision_count = (SELECT revision_count FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        contributor_rating = (SELECT contributor_rating FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        adjusted_rating = (SELECT adjusted_rating FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id),
+        wilson_score = (SELECT wilson_score FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id)
+    WHERE EXISTS (SELECT 1 FROM temp_page_summary WHERE temp_page_summary.page_id = pages.page_id);
+
+    UPDATE pages
+    SET status_id = (SELECT status_id FROM temp_page_status WHERE temp_page_status.page_id = pages.page_id),
+        original_id = (SELECT original_id FROM temp_page_status WHERE temp_page_status.page_id = pages.page_id),
+        fixed = (SELECT fixed FROM temp_page_status WHERE temp_page_status.page_id = pages.page_id),
+        kind_id = (SELECT kind_id FROM temp_page_status WHERE temp_page_status.page_id = pages.page_id)
+    WHERE EXISTS (SELECT 1 FROM temp_page_status WHERE temp_page_status.page_id = pages.page_id);
+  `);
+
   emitProgress(progress, { phase: 'finalize', message: 'Indexing imported revision events...' });
   db.exec(`
     CREATE INDEX idx_temp_revision_events_page_time
@@ -489,6 +546,12 @@ function finalizeLookupDb(db, statements, inputPath, counters, progress) {
 
     CREATE INDEX idx_pages_site_creation
     ON pages (site_id, creation_date);
+
+    CREATE INDEX idx_page_tags_tag_page
+    ON page_tags (tag, page_id);
+
+    CREATE INDEX idx_page_tags_page_tag
+    ON page_tags (page_id, tag);
   `);
 
   emitProgress(progress, { phase: 'finalize', message: 'Filling page URLs, categories, and status labels...' });
@@ -527,12 +590,14 @@ function finalizeLookupDb(db, statements, inputPath, counters, progress) {
   const siteCount = db.prepare('SELECT COUNT(*) AS count FROM sites').get().count;
   const eventCount = db.prepare('SELECT COUNT(*) AS count FROM rating_events').get().count;
   const revisionPageCount = db.prepare('SELECT COUNT(*) AS count FROM pages WHERE creation_date IS NOT NULL').get().count;
+  const tagCount = db.prepare('SELECT COUNT(*) AS count FROM page_tags').get().count;
 
   statements.meta.run('source_dump', path.basename(inputPath));
   statements.meta.run('imported_at', new Date().toISOString());
   statements.meta.run('page_count', String(pageCount));
   statements.meta.run('site_count', String(siteCount));
   statements.meta.run('rating_event_count', String(eventCount));
+  statements.meta.run('page_tag_count', String(tagCount));
   statements.meta.run('pages_with_creation_date', String(revisionPageCount));
   statements.meta.run('votes_rows_imported', String(counters.votes));
   statements.meta.run('vote_history_rows_imported', String(counters.voteHistory));
@@ -542,6 +607,8 @@ function finalizeLookupDb(db, statements, inputPath, counters, progress) {
   db.exec(`
     DROP TABLE IF EXISTS temp_vote_events;
     DROP TABLE IF EXISTS temp_revision_events;
+    DROP TABLE IF EXISTS temp_page_summary;
+    DROP TABLE IF EXISTS temp_page_status;
   `);
 
   emitProgress(progress, { phase: 'finalize', message: 'Vacuuming sanitized database...' });
@@ -575,6 +642,7 @@ export async function buildLookupDatabase({ inputPath, outputPath, progress }) {
     pageSummary: 0,
     pageStatus: 0,
     revisions: 0,
+    tags: 0,
     votes: 0,
     voteHistory: 0,
   };

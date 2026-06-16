@@ -133,6 +133,33 @@ app.get('/api/sites', (_req, res) => {
   }
 });
 
+app.get('/api/tags', (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(400).json({ error: 'No lookup database has been imported yet.' });
+  try {
+    const site = String(req.query.site || 'en').trim();
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const limit = parseLimit(req.query.limit, 100, 500);
+    if (!/^[a-z0-9_-]{1,10}$/i.test(site)) return res.status(400).json({ error: 'Invalid site code.' });
+    const rows = db.prepare(`
+      SELECT pt.tag, COUNT(*) AS pages
+      FROM page_tags pt
+      JOIN pages p ON p.page_id = pt.page_id
+      JOIN sites s ON s.site_id = p.site_id
+      WHERE s.short_name = ?
+        AND (? = '' OR pt.tag LIKE ?)
+      GROUP BY pt.tag
+      ORDER BY pages DESC, pt.tag ASC
+      LIMIT ?
+    `).all(site, q, `%${q}%`, limit);
+    res.json({ rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
 app.post('/api/import-path', (req, res) => {
   const inputPath = String(req.body?.path || '').trim();
   if (!inputPath) return res.status(400).json({ error: 'Path is required.' });
@@ -277,6 +304,14 @@ function parseLimit(value, fallback = 100, max = 1000) {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.min(Math.floor(n), max);
+}
+
+function parseTags(value) {
+  return String(value || '')
+    .split(',')
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((tag, index, arr) => arr.indexOf(tag) === index);
 }
 
 function normalizeStartDate(date) {
@@ -485,6 +520,114 @@ app.get('/api/reports/contest-window', (req, res) => {
       ORDER BY p.current_rating DESC, p.creation_date ASC
       LIMIT ?
     `).all(site, start, end, includeDeleted ? 1 : 0, limit);
+    res.json({ rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    db.close();
+  }
+});
+
+
+app.get('/api/reports/bulk-pages', (req, res) => {
+  const db = getDb();
+  if (!db) return res.status(400).json({ error: 'No lookup database has been imported yet.' });
+  try {
+    const site = String(req.query.site || 'en').trim();
+    const start = normalizeStartDate(String(req.query.start || '').trim());
+    const end = normalizeStartDate(String(req.query.end || '').trim());
+    const asOf = normalizeDate(String(req.query.asOf || req.query.end || '').trim());
+    const includeDeleted = String(req.query.includeDeleted || 'false') === 'true';
+    const limit = parseLimit(req.query.limit, 500, 10000);
+    const tags = parseTags(req.query.tags);
+    const tagMode = String(req.query.tagMode || 'all') === 'any' ? 'any' : 'all';
+
+    if (!/^[a-z0-9_-]{1,10}$/i.test(site)) return res.status(400).json({ error: 'Invalid site code.' });
+    if (tags.length > 25) return res.status(400).json({ error: 'Too many tags. Use 25 or fewer.' });
+
+    const params = [site, start, end, includeDeleted ? 1 : 0];
+    let tagClause = '';
+    if (tags.length) {
+      const placeholders = tags.map(() => '?').join(', ');
+      if (tagMode === 'any') {
+        tagClause = `
+          AND EXISTS (
+            SELECT 1 FROM page_tags pt
+            WHERE pt.page_id = p.page_id
+              AND pt.tag IN (${placeholders})
+          )
+        `;
+        params.push(...tags);
+      } else {
+        tagClause = `
+          AND (
+            SELECT COUNT(DISTINCT pt.tag)
+            FROM page_tags pt
+            WHERE pt.page_id = p.page_id
+              AND pt.tag IN (${placeholders})
+          ) = ?
+        `;
+        params.push(...tags, tags.length);
+      }
+    }
+    params.push(asOf, asOf, limit);
+
+    const rows = db.prepare(`
+      WITH target_pages AS (
+        SELECT
+          p.page_id,
+          p.url,
+          p.name,
+          p.title,
+          p.creation_date,
+          p.current_rating,
+          p.deleted,
+          p.status_name,
+          p.kind_name,
+          p.category
+        FROM pages p
+        JOIN sites s ON s.site_id = p.site_id
+        WHERE s.short_name = ?
+          AND p.creation_date IS NOT NULL
+          AND p.creation_date >= ?
+          AND p.creation_date < ?
+          AND (? = 1 OR p.deleted = 0)
+          ${tagClause}
+      ),
+      rating_as_of AS (
+        SELECT
+          e.page_id,
+          SUM(e.rating_delta) AS rating_as_of,
+          SUM(e.positive_delta) AS positive_value_as_of,
+          SUM(e.negative_delta) AS negative_value_as_of,
+          SUM(e.nonzero_vote_delta) AS nonzero_vote_count_as_of
+        FROM rating_events e
+        JOIN target_pages tp ON tp.page_id = e.page_id
+        WHERE e.event_time <= ?
+        GROUP BY e.page_id
+      )
+      SELECT
+        tp.page_id,
+        tp.url,
+        tp.name,
+        tp.title,
+        tp.creation_date,
+        ? AS rating_as_of_date,
+        COALESCE(rao.rating_as_of, 0) AS rating_as_of,
+        COALESCE(rao.positive_value_as_of, 0) AS positive_value_as_of,
+        COALESCE(rao.negative_value_as_of, 0) AS negative_value_as_of,
+        COALESCE(rao.nonzero_vote_count_as_of, 0) AS nonzero_vote_count_as_of,
+        tp.current_rating,
+        tp.deleted,
+        tp.status_name,
+        tp.kind_name,
+        tp.category,
+        COALESCE((SELECT group_concat(tag, ';') FROM page_tags WHERE page_id = tp.page_id ORDER BY tag), '') AS tags
+      FROM target_pages tp
+      LEFT JOIN rating_as_of rao ON rao.page_id = tp.page_id
+      ORDER BY rating_as_of DESC, tp.creation_date ASC, tp.name ASC
+      LIMIT ?
+    `).all(...params);
     res.json({ rows });
   } catch (error) {
     res.status(500).json({ error: error.message });

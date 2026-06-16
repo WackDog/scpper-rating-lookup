@@ -80,6 +80,13 @@ CREATE TABLE \`page_summary\` (
 );
 INSERT INTO \`page_summary\` VALUES (1,1956234,1,1,2,1,1,1.0,1);
 
+CREATE TABLE \`tags\` (
+  \`__Id\` bigint unsigned NOT NULL AUTO_INCREMENT,
+  \`PageId\` int NOT NULL,
+  \`Name\` varchar(100) NOT NULL
+);
+INSERT INTO \`tags\` VALUES (1,1956234,'scp'),(2,1956234,'euclid');
+
 CREATE TABLE \`revisions\` (
   \`__Id\` bigint unsigned NOT NULL AUTO_INCREMENT,
   \`WikidotId\` int NOT NULL,
@@ -131,10 +138,16 @@ const later = db.prepare(`
   WHERE page_id = 1956234 AND event_time <= '2019-04-01 23:59:59'
 `).get().rating;
 const page = db.prepare(`
-  SELECT creation_date, last_revision_date, revision_count, category, status_name, kind_name
+  SELECT creation_date, last_revision_date, revision_count, category, status_name, kind_name, current_rating
   FROM pages
   WHERE page_id = 1956234
 `).get();
+const tags = db.prepare(`
+  SELECT group_concat(tag, ',') AS tags
+  FROM page_tags
+  WHERE page_id = 1956234
+  ORDER BY tag
+`).get().tags;
 
 db.close();
 
@@ -146,6 +159,12 @@ if (page.creation_date !== '2018-12-31 11:00:00' || page.last_revision_date !== 
 }
 if (page.category !== 'scp' || page.status_name !== 'ok' || page.kind_name !== 'article') {
   throw new Error(`Self-test failed for labels: ${JSON.stringify(page)}`);
+}
+if (page.current_rating !== 1) {
+  throw new Error(`Self-test failed for current rating: ${JSON.stringify(page)}`);
+}
+if (tags !== 'euclid,scp' && tags !== 'scp,euclid') {
+  throw new Error(`Self-test failed for tags: ${tags}`);
 }
 
 console.log('Self-test passed.');

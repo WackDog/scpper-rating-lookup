@@ -85,7 +85,8 @@ async function refreshStatus() {
       Pages: <code>${escapeHtml(status.metadata.page_count || '?')}</code><br>
       Sites: <code>${escapeHtml(status.metadata.site_count || '?')}</code><br>
       Rating events: <code>${escapeHtml(status.metadata.rating_event_count || '?')}</code><br>
-      Pages with creation dates: <code>${escapeHtml(status.metadata.pages_with_creation_date || '?')}</code>
+      Pages with creation dates: <code>${escapeHtml(status.metadata.pages_with_creation_date || '?')}</code><br>
+      Page tags: <code>${escapeHtml(status.metadata.page_tag_count || '?')}</code>
     `;
     await refreshSites();
   } catch (error) {
@@ -262,6 +263,18 @@ document.getElementById('run-report').addEventListener('click', async () => {
     } else if (type === 'contest-window') {
       endpoint = '/api/reports/contest-window';
       params = new URLSearchParams({ site, start: document.getElementById('report-start').value, end: document.getElementById('report-end').value, includeDeleted: String(includeDeleted), limit });
+    } else if (type === 'bulk-pages') {
+      endpoint = '/api/reports/bulk-pages';
+      params = new URLSearchParams({
+        site,
+        start: document.getElementById('report-start').value,
+        end: document.getElementById('report-end').value,
+        asOf: document.getElementById('report-as-of').value,
+        tags: document.getElementById('report-tags').value.trim(),
+        tagMode: document.getElementById('report-tag-mode').value,
+        includeDeleted: String(includeDeleted),
+        limit,
+      });
     } else if (type === 'site-summary') {
       endpoint = '/api/reports/site-summary';
       params = new URLSearchParams();

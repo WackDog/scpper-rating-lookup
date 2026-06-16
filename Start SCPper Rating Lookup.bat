@@ -32,7 +32,6 @@ echo Keep this window open while using the tool.
 echo To stop the app, press Ctrl+C, then Y.
 echo.
 
-start "" "http://127.0.0.1:3000"
 npm start
 
 echo.
